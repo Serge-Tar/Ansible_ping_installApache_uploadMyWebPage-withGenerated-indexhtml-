@@ -1,0 +1,82 @@
+---
+- name:  Install Web Site
+  hosts: all
+  become: yes
+#  become_user: root
+#  become_method: sudo
+  vars:
+    source_folder: ./MyWebSite2(Generated indexhtml)
+    destin_folder: /var/www/html
+
+  tasks:
+
+  - block: #========= Install for "Debian"=========
+
+     - name: Install Apache WebServer
+       apt:
+         name: apache2
+         state: present
+         update_cache: yes
+
+     - name: Start Apache and Enable it on the every boot
+       service: name=apache2 state=started enabled=yes
+
+    when: ansible_os_family == "Debian"
+
+  - block: #========= Install for "RedHat"=========
+
+     - name: Install Apache WebServer
+       yum:
+         name: httpd
+         state: present
+         update_cache: yes
+
+     - name: Start Apache and Enable it on the every boot
+       service: name=httpd state=started enabled=yes
+
+    when: ansible_os_family == "RedHat"
+
+          #========================================
+
+  - name: Generate INDEX.HTML file
+    template: src={{ source_folder }}/index.j2 dest={{ destin_folder }}/index.html mode=0555
+    notify:
+      - Restart Apache RedHat
+      - Restart Apache Debian
+
+  - name: Copy My HomePage files to servers
+    copy:
+      src: "{{ source_folder  }}/{{ item }}"
+      dest: "{{ destin_folder }}"
+      mode: 0555
+    loop:             #копируем через цикл loop, перечисляя все файлы в папке откуда копировать
+      - "1.jpg"
+    notify:
+      - Restart Apache RedHat
+      - Restart Apache Debian
+
+  handlers:
+  - name: Restart Apache RedHat
+    service:
+      name: httpd
+      state: restarted
+    when: ansible_os_family == "RedHat"
+
+  - name: Restart Apache Debian
+    service:
+      name: apache2
+      state: restarted
+    when: ansible_os_family == "Debian"
+
+
+# instaliruet webserver Apache na host i zapuskaet ego i perezapuskaet
+# ansible-playbook playbook2-install-Apache.yml -b -k -K 
+
+#=========== В этом случае Ansible рекурсивно скопирует
+#=========== содержимое директории на управляющем компьютере
+#=========== в соответствующую директорию на удалённом:
+#- name: Copy directory to remote host
+#  copy:
+#    src: /home/ubuntu/local/directory/
+#    dest: /home/ubuntu/remote/directory/
+#    remote_src: yes
